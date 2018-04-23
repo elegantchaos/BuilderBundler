@@ -6,10 +6,20 @@
 
 import Foundation
 
+// TODO: copy standard bundled frameworks
+// TODO: substitutions in Info.plist
+// TODO: generate PkgInfo?
+
 let process = ProcessInfo.processInfo
 
 class Bundler: NSObject, FileManagerDelegate {
+    var binaryDst: URL? = nil
+    
     func fileManager(_ fileManager: FileManager, shouldCopyItemAt srcURL: URL, to dstURL: URL) -> Bool {
+        if dstURL.lastPathComponent == "MacOS" {
+            binaryDst = dstURL
+        }
+        
         return true
     }
     
@@ -26,6 +36,7 @@ class Bundler: NSObject, FileManagerDelegate {
             let rootURL = URL(fileURLWithPath: root)
             let bundleURL = rootURL.appendingPathComponent("Sources").appendingPathComponent(target).appendingPathComponent("Resources").appendingPathComponent("Bundle")
             let buildProductsURL = rootURL.appendingPathComponent(".build").appendingPathComponent(buildProductsPath)
+            let binaryURL = buildProductsURL.appendingPathComponent(target)
             let fm = FileManager()
             fm.delegate = self
             if fm.fileExists(atPath: bundleURL.path) {
@@ -33,6 +44,11 @@ class Bundler: NSObject, FileManagerDelegate {
                 let appBundleURL = buildProductsURL.appendingPathComponent(target, isDirectory:false).appendingPathExtension("app")
                 try fm.createDirectory(at: appBundleURL, withIntermediateDirectories: true, attributes: nil)
                 try fm.copyItem(at: bundleURL, to: appBundleURL)
+                
+                if let binaryDst = binaryDst {
+                    let binaryDestURL = binaryDst.appendingPathComponent(target)
+                    try fm.copyItem(at: binaryURL, to: binaryDestURL)
+                }
             } else {
                 print("Missing bundle: \(target)")
             }
