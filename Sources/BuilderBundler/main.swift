@@ -6,8 +6,4 @@
 
 import Foundation
 
-if let stage = ProcessInfo.processInfo.environment["BUILDER_STAGE"] {
-  print("Example tool ran for stage \(stage).")
-} else {
-  print("Example tool ran for unknown stage.")
-}
+print("Builder bundler ran.")

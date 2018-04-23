@@ -1,12 +1,12 @@
 import XCTest
-@testable import Projects
+@testable import BuilderBundler
 
-final class ProjectsTests: XCTestCase {
+final class BuilderBundlerTests: XCTestCase {
     func testExample() {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-        XCTAssertEqual(Projects().text, "Hello, World!")
+        XCTAssertEqual(BuilderBundler().text, "Hello, World!")
     }
 
 
