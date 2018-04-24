@@ -33,7 +33,11 @@ class Bundler: NSObject, FileManagerDelegate {
         switch (name as NSString).pathExtension {
         case "":
             if name.last == "/" {
-                bundlers.append(FolderBundler.self)
+                if name == "Frameworks/" {
+                    bundlers.append(FrameworksBundler.self)
+                } else {
+                    bundlers.append(FolderBundler.self)
+                }
             }
             
         case "plist":
