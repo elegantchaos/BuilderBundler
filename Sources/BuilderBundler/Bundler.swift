@@ -11,13 +11,14 @@ class Bundler: NSObject, FileManagerDelegate {
     let kind: String
     let configuration: String
     let platform: String
-    let environment: [String:String] = [:]
+    let environment: [String:String]
     
     init(product: String, kind: String, configuration: String, platform: String) {
         self.product = product
         self.kind = kind
         self.configuration = configuration
         self.platform = platform
+        self.environment = ProcessInfo.processInfo.environment
     }
     
     var binaryDst: URL? = nil
@@ -37,7 +38,7 @@ class Bundler: NSObject, FileManagerDelegate {
             
         case "plist":
             if name == "Info.plist" {
-                let bundler = kind == "executable" ? ApplicationInfoBundler.self : InfoBundler.self
+                let bundler = kind == "executable" ? ApplicationInfoBundler.self : BundleInfoBundler.self
                 bundlers.append(bundler)
                 bundlers.append(PkgInfoBundler.self)
             } else {
