@@ -12,6 +12,12 @@ import Foundation
 
 let process = ProcessInfo.processInfo
 
+extension URL {
+    func existsLocally() -> Bool {
+        return FileManager.default.fileExists(atPath: self.path)
+    }
+}
+
 class Bundler: NSObject, FileManagerDelegate {
     var binaryDst: URL? = nil
     
@@ -31,11 +37,9 @@ class Bundler: NSObject, FileManagerDelegate {
         return false
     }
     
-    func bundle(target: String, buildProductsPath: String) throws {
-        if let root = process.environment["PWD"] {
-            let rootURL = URL(fileURLWithPath: root)
-            let bundleURL = rootURL.appendingPathComponent("Sources").appendingPathComponent(target).appendingPathComponent("Resources").appendingPathComponent("Bundle")
-            let buildProductsURL = rootURL.appendingPathComponent(".build").appendingPathComponent(buildProductsPath)
+    func copyStatic(target: String, resourcesURL: URL, buildProductsURL: URL) throws {
+        let bundleURL = resourcesURL.appendingPathComponent("Bundle")
+        if bundleURL.existsLocally() {
             let binaryURL = buildProductsURL.appendingPathComponent(target)
             let fm = FileManager()
             fm.delegate = self
@@ -52,6 +56,60 @@ class Bundler: NSObject, FileManagerDelegate {
             } else {
                 print("Missing bundle: \(target)")
             }
+        }
+    }
+
+    func copyDynamic(plist: [String:Any], target: String, destination: URL) throws {
+        print("plist \(plist) path:\(destination)")
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        try data.write(to: destination)
+    }
+    
+    func copyDynamic(item: Any, target: String, destination: URL) throws {
+        print("copy \(item) path:\(destination)")
+    }
+    
+    func copyDynamic(items: [String:Any], target: String, destination: URL) throws {
+        do {
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            
+        }
+        for item in items {
+            let subpath = destination.appendingPathComponent(item.key)
+            if var items = item.value as? [String:Any] {
+                let type = items["type"] as? String ?? "folder"
+                items.removeValue(forKey: "type")
+                switch type {
+                case "plist" :
+                    try copyDynamic(plist:items, target: target, destination: subpath)
+                default:
+                    try copyDynamic(items: items, target: target, destination: subpath)
+                }
+            } else {
+                try copyDynamic(item: item.value, target: target, destination: subpath)
+            }
+        }
+    }
+
+    func copyDynamic(target: String, resourcesURL: URL, buildProductsURL: URL) throws {
+        let bundleSpecURL = resourcesURL.appendingPathComponent("Bundle.json")
+        let data = try Data(contentsOf: bundleSpecURL)
+        if let spec = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String:Any] {
+            if let items = spec["items"] as? [String:Any] {
+                try copyDynamic(items: items, target: target, destination: buildProductsURL)
+            }
+        }
+    }
+
+    func bundle(target: String, buildProductsPath: String) throws {
+        if let root = process.environment["PWD"] {
+            let rootURL = URL(fileURLWithPath: root)
+            let resourcesURL = rootURL.appendingPathComponent("Sources").appendingPathComponent(target).appendingPathComponent("Resources")
+            let buildProductsURL = rootURL.appendingPathComponent(".build").appendingPathComponent(buildProductsPath)
+            let appBundleURL = buildProductsURL.appendingPathComponent(target, isDirectory:false).appendingPathExtension("app")
+//            try copyStatic(target: target, resourcesURL: resourcesURL, buildProductsURL: appBundleURL)
+            try copyDynamic(target: target, resourcesURL: resourcesURL, buildProductsURL: appBundleURL)
         }
     }
 }
