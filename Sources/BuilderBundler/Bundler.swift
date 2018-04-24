@@ -5,73 +5,13 @@
 
 import Foundation
 
-class ItemBundler {
-    var info: Any
-    let destination: URL
-    let bundler: Bundler
-    
-    required init(info: Any, destination: URL, bundler: Bundler) {
-        self.info = info
-        self.destination = destination
-        self.bundler = bundler
-    }
-    
-    func bundle() {
-    }
-}
-
-class FolderBundler: ItemBundler {
-    override func bundle() {
-        if let items = info as? [String:Any] {
-            do {
-                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true, attributes: nil)
-            } catch {
-                bundler.failed(error: error)
-            }
-            
-            for item in items {
-                let subpath = destination.appendingPathComponent(item.key)
-                if let bundlerClass = bundler.bundlerClass(for: item.value, name: item.key) {
-                    let itemBundler = bundlerClass.init(info: item, destination: subpath, bundler: bundler)
-                    itemBundler.bundle()
-                }
-            }
-        }
-    }
-}
-
-class InfoBundler: ItemBundler {
-    override func bundle() {
-        if var info = info as? [String:Any] {
-            info["CFBundleInfoDictionaryVersion"] = "6.0"
-            info["CFBundleName"] = bundler.product
-            
-            do {
-                let data = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
-                try data.write(to: destination)
-            } catch {
-                bundler.failed(error: error)
-            }
-        }
-    }
-}
-
-class ApplicationInfoBundler: InfoBundler {
-    override func bundle() {
-        if var info = info as? [String:Any] {
-            info["CFBundleInfoDictionaryVersion"] = "6.0"
-            info["CFBundleName"] = bundler.product
-            self.info = info
-            super.bundle()
-        }
-    }
-}
 
 class Bundler: NSObject, FileManagerDelegate {
     let product: String
     let kind: String
     let configuration: String
     let platform: String
+    let environment: [String:String] = [:]
     
     init(product: String, kind: String, configuration: String, platform: String) {
         self.product = product
@@ -151,24 +91,7 @@ class Bundler: NSObject, FileManagerDelegate {
         try data.write(to: destination)
     }
     
-    /*
-     "BuildMachineOSBuild" : "16G1212",
-     "CFBundleIdentifier": "com.elegantchaos.BuilderExampleApp",
-     "CFBundleShortVersionString": "1.0",
-     "CFBundleSupportedPlatforms": ["MacOSX"],
-     "CFBundleVersion": "1",
-     "DTCompiler": "com.apple.compilers.llvm.clang.1_0",
-     "DTPlatformBuild": "9C40b",
-     "DTPlatformVersion": "GM",
-     "DTSDKBuild": "17C76",
-     "DTSDKName": "macosx10.13",
-     "DTXcode": "0920",
-     "DTXcodeBuild": "9C40b",
-     "LSMinimumSystemVersion": "10.12",
-     "NSHumanReadableCopyright": "Copyright © 2018 Elegant Chaos. All rights reserved.",
-     "NSMainStoryboardFile": "Main",
-     
-     */
+
     
     func copyDynamic(application plist: [String:Any], destination: URL) throws {
         var info = plist
