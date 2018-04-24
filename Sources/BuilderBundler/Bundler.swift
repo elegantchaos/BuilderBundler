@@ -27,23 +27,28 @@ class Bundler: NSObject, FileManagerDelegate {
         
     }
     
-    func bundlerClass(for item: Any, name: String) -> ItemBundler.Type? {
+    func bundlers(for item: Any, name: String) -> [ItemBundler.Type] {
+        var bundlers: [ItemBundler.Type] = []
         switch (name as NSString).pathExtension {
         case "":
-            if name == "PkgInfo" {
-                return PkgInfoBundler.self
-            } else if name.last == "/" {
-                return FolderBundler.self
+            if name.last == "/" {
+                bundlers.append(FolderBundler.self)
             }
             
         case "plist":
-            return kind == "executable" ? ApplicationInfoBundler.self : InfoBundler.self
+            if name == "Info.plist" {
+                let bundler = kind == "executable" ? ApplicationInfoBundler.self : InfoBundler.self
+                bundlers.append(bundler)
+                bundlers.append(PkgInfoBundler.self)
+            } else {
+                bundlers.append(InfoBundler.self)
+            }
             
         default:
-            return nil
+            break
         }
         
-        return nil
+        return bundlers
     }
     
     func fileManager(_ fileManager: FileManager, shouldCopyItemAt srcURL: URL, to dstURL: URL) -> Bool {
