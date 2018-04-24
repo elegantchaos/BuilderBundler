@@ -70,8 +70,7 @@ class Bundler: NSObject, FileManagerDelegate {
     }
     
     func fileManager(_ fileManager: FileManager, shouldProceedAfterError error: Error, copyingItemAt srcURL: URL, to dstURL: URL) -> Bool {
-        let nserr = error as NSError
-        if (nserr.domain == NSCocoaErrorDomain) && (nserr.code == NSFileWriteFileExistsError) {
+        if case CocoaError.fileWriteFileExists = error {
             return true
         }
         return false
@@ -81,8 +80,8 @@ class Bundler: NSObject, FileManagerDelegate {
         do {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
             return true
-        } catch let error as NSError {
-            return (error.domain == NSCocoaErrorDomain) && (error.code == NSFileWriteFileExistsError)
+        } catch CocoaError.fileWriteFileExists {
+            return true
         } catch {
             return false
         }
