@@ -20,6 +20,9 @@ extension URL {
 
 if CommandLine.argc > 4 {
     let arguments = CommandLine.arguments
-    let bundler = Bundler(product: arguments[1], kind: arguments[4], configuration: arguments[2], platform: arguments[3])
-    try bundler.bundle()
+    if let root = process.environment["PWD"] {
+        let rootURL = URL(fileURLWithPath: root)
+        let bundler = Bundler(product: arguments[1], kind: arguments[4], configuration: arguments[2], platform: arguments[3], root: rootURL)
+        bundler.bundle()
+    }
 }

@@ -12,13 +12,17 @@ class Bundler: NSObject, FileManagerDelegate {
     let configuration: String
     let platform: String
     let environment: [String:String]
+    let root: URL
+    let products: URL
     
-    init(product: String, kind: String, configuration: String, platform: String) {
+    init(product: String, kind: String, configuration: String, platform: String, root: URL) {
         self.product = product
         self.kind = kind
         self.configuration = configuration
         self.platform = platform
         self.environment = ProcessInfo.processInfo.environment
+        self.root = root
+        self.products = root.appendingPathComponent(".build").appendingPathComponent("\(platform)/\(configuration)")
     }
     
     var binaryDst: URL? = nil
@@ -30,27 +34,31 @@ class Bundler: NSObject, FileManagerDelegate {
     
     func bundlers(for item: Any, name: String) -> [ItemBundler.Type] {
         var bundlers: [ItemBundler.Type] = []
-        switch (name as NSString).pathExtension {
-        case "":
-            if name.last == "/" {
-                if name == "Frameworks/" {
-                    bundlers.append(FrameworksBundler.self)
-                } else {
-                    bundlers.append(FolderBundler.self)
-                }
-            }
+        switch name {
+        case "MacOS":
+            bundlers.append(ExecutableBundler.self)
             
-        case "plist":
-            if name == "Info.plist" {
-                let bundler = kind == "executable" ? ApplicationInfoBundler.self : BundleInfoBundler.self
-                bundlers.append(bundler)
-                bundlers.append(PkgInfoBundler.self)
-            } else {
-                bundlers.append(InfoBundler.self)
-            }
+        case "Info.plist":
+            let bundler = kind == "executable" ? ApplicationInfoBundler.self : BundleInfoBundler.self
+            bundlers.append(bundler)
+            bundlers.append(PkgInfoBundler.self)
+            
+        case "Frameworks/":
+            bundlers.append(FrameworksBundler.self)
             
         default:
-            break
+            switch (name as NSString).pathExtension {
+            case "":
+                if name.last == "/" {
+                    bundlers.append(FolderBundler.self)
+                }
+                
+            case "plist":
+                bundlers.append(InfoBundler.self)
+                
+            default:
+                break
+            }
         }
         
         return bundlers
@@ -75,19 +83,12 @@ class Bundler: NSObject, FileManagerDelegate {
     func copyStatic(resourcesURL: URL, destination: URL) throws {
         let bundleURL = resourcesURL.appendingPathComponent("Bundle")
         if bundleURL.existsLocally() {
-            let binaryURL = destination.appendingPathComponent(product)
             let fm = FileManager()
             fm.delegate = self
             if fm.fileExists(atPath: bundleURL.path) {
                 print("Bundling \(bundleURL).")
-                let appBundleURL = destination.appendingPathComponent(product, isDirectory:false).appendingPathExtension("app")
-                try fm.createDirectory(at: appBundleURL, withIntermediateDirectories: true, attributes: nil)
-                try fm.copyItem(at: bundleURL, to: appBundleURL)
-                
-                if let binaryDst = binaryDst {
-                    let binaryDestURL = binaryDst.appendingPathComponent(product)
-                    try fm.copyItem(at: binaryURL, to: binaryDestURL)
-                }
+                try fm.createDirectory(at: destination, withIntermediateDirectories: true, attributes: nil)
+                try fm.copyItem(at: bundleURL, to: destination)
             } else {
                 print("Missing bundle: \(product)")
             }
@@ -143,25 +144,20 @@ class Bundler: NSObject, FileManagerDelegate {
         }
     }
     
-    func bundle() throws {
-        let buildProductsPath = "\(platform)/\(configuration)"
-        if let root = process.environment["PWD"] {
-            let rootURL = URL(fileURLWithPath: root)
-            let resourcesURL = rootURL.appendingPathComponent("Sources").appendingPathComponent(product).appendingPathComponent("Resources")
-            let buildProductsURL = rootURL.appendingPathComponent(".build").appendingPathComponent(buildProductsPath)
-            let destination = bundleURL(buildProductsURL: buildProductsURL)
-            do {
-//                try copyStatic(resourcesURL: resourcesURL, destination: destination)
-            } catch {
-                failed(error: error)
-            }
-            
-            do {
-                try copyDynamic(resourcesURL: resourcesURL, destination: destination)
-            }
-            catch {
-                failed(error: error)
-            }
+    func bundle() {
+        let resourcesURL = root.appendingPathComponent("Sources").appendingPathComponent(product).appendingPathComponent("Resources")
+        let destination = bundleURL(buildProductsURL: products)
+        do {
+                try copyStatic(resourcesURL: resourcesURL, destination: destination)
+        } catch {
+            failed(error: error)
+        }
+        
+        do {
+            try copyDynamic(resourcesURL: resourcesURL, destination: destination)
+        }
+        catch {
+            failed(error: error)
         }
     }
 }
