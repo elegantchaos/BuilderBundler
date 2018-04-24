@@ -17,7 +17,7 @@ class FolderBundler: ItemBundler {
             for item in items {
                 let subpath = destination.appendingPathComponent(item.key)
                 if let bundlerClass = bundler.bundlerClass(for: item.value, name: item.key) {
-                    let itemBundler = bundlerClass.init(info: item, destination: subpath, bundler: bundler)
+                    let itemBundler = bundlerClass.init(info: item.value, destination: subpath, bundler: bundler)
                     itemBundler.bundle()
                 }
             }

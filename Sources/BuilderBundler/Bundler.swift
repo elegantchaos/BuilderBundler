@@ -30,7 +30,9 @@ class Bundler: NSObject, FileManagerDelegate {
     func bundlerClass(for item: Any, name: String) -> ItemBundler.Type? {
         switch (name as NSString).pathExtension {
         case "":
-            if name.last == "/" {
+            if name == "PkgInfo" {
+                return PkgInfoBundler.self
+            } else if name.last == "/" {
                 return FolderBundler.self
             }
             
@@ -138,8 +140,18 @@ class Bundler: NSObject, FileManagerDelegate {
             let resourcesURL = rootURL.appendingPathComponent("Sources").appendingPathComponent(product).appendingPathComponent("Resources")
             let buildProductsURL = rootURL.appendingPathComponent(".build").appendingPathComponent(buildProductsPath)
             let destination = bundleURL(buildProductsURL: buildProductsURL)
-            try copyStatic(resourcesURL: resourcesURL, destination: destination)
-            try copyDynamic(resourcesURL: resourcesURL, destination: destination)
+            do {
+//                try copyStatic(resourcesURL: resourcesURL, destination: destination)
+            } catch {
+                failed(error: error)
+            }
+            
+            do {
+                try copyDynamic(resourcesURL: resourcesURL, destination: destination)
+            }
+            catch {
+                failed(error: error)
+            }
         }
     }
 }
