@@ -5,6 +5,12 @@
 
 import Foundation
 
+/**
+ Bundler which creates a PkgInfo file.
+ 
+ It uses the product kind to decide what to put in the file.
+ */
+
 class PkgInfoBundler: ItemBundler {
     override func bundle() {
         let kind = bundler.kind == "executable" ? "APPL" : "BNDL"

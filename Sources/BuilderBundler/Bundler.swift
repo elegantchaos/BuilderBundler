@@ -14,6 +14,7 @@ class Bundler: NSObject, FileManagerDelegate {
     let environment: [String:String]
     let root: URL
     let products: URL
+    let fileManager : FileManager
     
     init(product: String, kind: String, configuration: String, platform: String, root: URL) {
         self.product = product
@@ -23,6 +24,10 @@ class Bundler: NSObject, FileManagerDelegate {
         self.environment = ProcessInfo.processInfo.environment
         self.root = root
         self.products = root.appendingPathComponent(".build").appendingPathComponent("\(platform)/\(configuration)")
+        self.fileManager = FileManager()
+        super.init()
+        
+        self.fileManager.delegate = self
     }
     
     var binaryDst: URL? = nil
@@ -64,14 +69,6 @@ class Bundler: NSObject, FileManagerDelegate {
         return bundlers
     }
     
-    func fileManager(_ fileManager: FileManager, shouldCopyItemAt srcURL: URL, to dstURL: URL) -> Bool {
-        if dstURL.lastPathComponent == "MacOS" {
-            binaryDst = dstURL
-        }
-        
-        return true
-    }
-    
     func fileManager(_ fileManager: FileManager, shouldProceedAfterError error: Error, copyingItemAt srcURL: URL, to dstURL: URL) -> Bool {
         let nserr = error as NSError
         if (nserr.domain == NSCocoaErrorDomain) && (nserr.code == NSFileWriteFileExistsError) {
@@ -80,52 +77,24 @@ class Bundler: NSObject, FileManagerDelegate {
         return false
     }
     
-    func copyStatic(resourcesURL: URL, destination: URL) throws {
-        let bundleURL = resourcesURL.appendingPathComponent("Bundle")
-        if bundleURL.existsLocally() {
-            let fm = FileManager()
-            fm.delegate = self
-            if fm.fileExists(atPath: bundleURL.path) {
-                print("Bundling \(bundleURL).")
-                try fm.createDirectory(at: destination, withIntermediateDirectories: true, attributes: nil)
-                try fm.copyItem(at: bundleURL, to: destination)
-            } else {
-                print("Missing bundle: \(product)")
-            }
+    func createDirectory(at url: URL) -> Bool {
+        do {
+            try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+            return true
+        } catch let error as NSError {
+            return (error.domain == NSCocoaErrorDomain) && (error.code == NSFileWriteFileExistsError)
+        } catch {
+            return false
         }
     }
     
-    func copyDynamic(plist: [String:Any], destination: URL) throws {
-        var info = plist
-        info["CFBundleInfoDictionaryVersion"] = "6.0"
-        info["CFBundleName"] = product
-        
-        let data = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
-        try data.write(to: destination)
-    }
-    
-
-    
-    func copyDynamic(application plist: [String:Any], destination: URL) throws {
-        var info = plist
-        info["CFBundlePackageType"] = "APPL"
-        info["CFBundleExecutable"] = product
-        info["NSPrincipalClass"] = "NSApplication"
-        
-        try copyDynamic(plist: info, destination: destination)
-    }
-    
-    func copyDynamic(item: Any, destination: URL) throws {
-        print("copy \(item) path:\(destination)")
-    }
-    
-    
-    func copyDynamic(resourcesURL: URL, destination: URL) throws {
+    func copy(resourcesURL: URL, destination: URL) throws {
+        let bundleURL = resourcesURL.appendingPathComponent("Bundle")
         let bundleSpecURL = resourcesURL.appendingPathComponent("Bundle.json")
         let data = try Data(contentsOf: bundleSpecURL)
         if let spec = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String:Any] {
             if let items = spec["items"] as? [String:Any] {
-                let bundler = FolderBundler(info: items, destination: destination, bundler: self)
+                let bundler = FolderBundler(info: items, source: bundleURL, destination: destination, bundler: self)
                 bundler.bundle()
             }
         }
@@ -148,13 +117,7 @@ class Bundler: NSObject, FileManagerDelegate {
         let resourcesURL = root.appendingPathComponent("Sources").appendingPathComponent(product).appendingPathComponent("Resources")
         let destination = bundleURL(buildProductsURL: products)
         do {
-                try copyStatic(resourcesURL: resourcesURL, destination: destination)
-        } catch {
-            failed(error: error)
-        }
-        
-        do {
-            try copyDynamic(resourcesURL: resourcesURL, destination: destination)
+            try copy(resourcesURL: resourcesURL, destination: destination)
         }
         catch {
             failed(error: error)

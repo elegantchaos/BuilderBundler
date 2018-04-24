@@ -5,13 +5,21 @@
 
 import Foundation
 
+/**
+ Abstract class responsible for copying an item into the bundle.
+ 
+ Intended to be subclassed.
+ */
+
 class ItemBundler {
     var info: Any
     let destination: URL
+    let source: URL
     let bundler: Bundler
     
-    required init(info: Any, destination: URL, bundler: Bundler) {
+    required init(info: Any, source: URL, destination: URL, bundler: Bundler) {
         self.info = info
+        self.source = source
         self.destination = destination
         self.bundler = bundler
     }
